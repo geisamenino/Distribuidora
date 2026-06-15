@@ -1,0 +1,232 @@
+package Controller;
+import Exceptions.ObrigatorioException;
+import Model.*;
+import Service.Distribuidora;
+import Util.LoggerService;
+import View.FornecedorView;
+import java.util.HashMap;
+import java.util.Map;
+
+public class FornecedorController {
+    private FornecedorView view;
+    private int proximoId;
+    private Distribuidora distribuidora;
+
+    public FornecedorController(FornecedorView view, Distribuidora distribuidora) {
+        this.view = view;
+        this.proximoId = 1;
+        this.distribuidora = distribuidora;
+    }
+    public void setView(FornecedorView view) {
+        this.view = view;
+    }
+
+    public void cad_fornecedor(String nome, String cnpj, String cep) {
+        try {
+            sincronizarProximoId();
+            Map<String, Bebida> bebidasFornecedor = new HashMap<>();
+        
+            Fornecedor f = new Fornecedor(proximoId, nome, cnpj, bebidasFornecedor, new Endereco(cep));
+            distribuidora.adicionarFornecedor(proximoId, f);
+            view.mensagem("Sucesso! Fornecedor cadastrado com ID: " + proximoId);
+            LoggerService.log("INFO", "Fornecedor cadastrado com ID: " +  proximoId);
+            proximoId++; 
+        }catch(ObrigatorioException e) {
+            view.mensagem("Erro ao cadastrar: " + e.getMessage());
+            LoggerService.log("ERROR", "Erro ao cadastrar fornecedor ID: " + proximoId);
+        }
+    }
+
+    public void buscar_fornecedor(int id) {
+        try {
+            Fornecedor f = distribuidora.getFornecedores().get(id);
+            if(f == null) {
+                view.mensagem("Fornecedor inexistente!");
+                LoggerService.log("WARNING", "Busca realizada por fornecedor inexistente. ID utilizado: " + id);
+            }else {
+                view.mensagem(f.toString());
+                view.mensagem("Bebidas associadas a ele: ");
+                if(f.getBebidasFornecedor().isEmpty()) {
+                    view.mensagem("Sem bebidas associadas!");
+                }else {
+                    for(Bebida b : f.getBebidasFornecedor().values()) {
+                        view.mensagem(b.getDescricaoBebida());
+                    }
+                }
+                LoggerService.log("INFO", "Fornecedor buscado ID: " + id);
+            }
+        } catch (Exception e ){
+            view.mensagem("Erro ao buscar fornecedor: " + e.getMessage());
+            LoggerService.log("ERROR", "Erro ao buscar fornecedor ID: " + id);
+        }
+    }
+
+    public void remover_fornecedor(int id) {
+        try {
+            if(distribuidora.getFornecedores().containsKey(id)){
+                distribuidora.getFornecedores().remove(id);
+                view.mensagem("Fornecedor removido!Essa ação remove o fornecedor e dasassocia as bebidas associadas a ele, mas não as remove do sistema");
+                LoggerService.log("INFO", "Fornecedor removido ID: " + id);
+            }else {
+                view.mensagem("Fornecedor inexistente!");
+                LoggerService.log("WARNING", "Tentativa de remoção de fornecedor inexistente. Id utilizado: " + id);
+            }
+        } catch (Exception e) {
+            view.mensagem("Erro ao remover fornecedor: " + e.getMessage());
+            LoggerService.log("ERROR", "Erro ao remover fornecedor de ID: " + id);
+        }
+    }
+
+    public void associar_bebidaFornecedor() {
+        try {
+            view.mensagem(" === ASSOCIAR BEBIDA === ");
+            int id = view.lerId();
+            if (distribuidora.getFornecedores().containsKey(id)) {
+                Fornecedor f = distribuidora.getFornecedores().get(id);
+
+                view.mensagem("\nFornecedor encontrado! Nome: " +  f.getNome());
+                String idBebida = view.lerBebida().toUpperCase();
+                Bebida b = distribuidora.buscarBebidaPorCodigo(idBebida);
+
+                if(b == null) {
+                    view.mensagem("Bebida não encontrada!");
+                    LoggerService.log("WARNING", "Tentativa de associar bebida inexistente ao fornecedor " + id);
+                }else {
+                    boolean associada = false;
+                    for(Fornecedor fornecedor : distribuidora.getFornecedores().values()) {
+                        if(fornecedor != f && fornecedor.getBebidasFornecedor().containsKey(idBebida.toUpperCase())) {
+                            view.mensagem("Está bebida já esta associada a outro fornecedor: " + fornecedor.getNome());
+                            associada = true;
+                            LoggerService.log("WARNING", "Tentativa de associar bebida já associada a outro fornecedor ao fornecedor " + id);
+                            break;
+                        }    
+                    }
+                    if(!associada) {
+                        f.getBebidasFornecedor().put(idBebida, b);
+                        view.mensagem("Sucesso! Bebida " + b.getNome() + " associada ao Fornecedor " + f.getNome());
+                        LoggerService.log("INFO", "Bebida " + idBebida + " associada ao fornecedor " + id);
+                    }
+                }
+            }else {
+                view.mensagem("Fornecedor não encontrado!");
+                LoggerService.log("WARNING", "UTentativa de associar bebida a um fornecedor inexistente");
+            }
+        } catch (Exception e) {
+            view.mensagem("Erro ao associar bebida: " + e.getMessage());
+            LoggerService.log("ERROR", "Erro ao associar bebida a um fornecedor");
+        }
+    }
+
+    public void desassociarBebida(int idFornecedor, String idBebida) {
+        try {
+            Fornecedor f = distribuidora.getFornecedores().get(idFornecedor);
+            Bebida b = f.getBebidasFornecedor().remove(idBebida.toUpperCase());
+            
+            if(b != null) {
+                view.mensagem("Bebida código: " + idBebida.toUpperCase() + " desassociada!");
+                LoggerService.log("INFO", "Bebida " + idBebida + " desassociada do fornecedor " + idFornecedor);
+            } else {
+                view.mensagem("Bebida não encontrada!");
+                LoggerService.log("WARNING", "Tentativa de desassociar bebida não pertencente ao fornecedor " + idFornecedor);
+            }
+        } catch (Exception e) {
+            view.mensagem("Erro ao desassociar bebida");
+            LoggerService.log("ERROR", "Erro ao desassociar bebida " + idBebida + " do fornecedor " + idFornecedor);
+        }
+        
+    }
+
+    public String alterarNome(int idFornecedor, String novoNome) {
+        try {
+            if(novoNome.isEmpty()) {
+                return "Atualização cancelada! O nome não pode ser vazio";
+            }else {
+                if(distribuidora.getFornecedores().containsKey(idFornecedor)) {
+                    distribuidora.getFornecedores().get(idFornecedor).setNome(novoNome);
+                    LoggerService.log("INFO", "Nome do fornecedor " + idFornecedor + " alterado para: "+ novoNome);
+                    return "Nome alterado com sucesso!";
+                }else {
+                    LoggerService.log("WARNING", "Tentativa de alterar nome de fornecedor inexistente. ID utilizado: " + idFornecedor);
+                    return "ID informado inexistente!";
+                }
+            }
+        }catch (ObrigatorioException e) {
+            LoggerService.log("ERROR", "Alteração de nome de fornecedor não realizada! Campos obrigatórios não foram preenchidos");
+            return "Preencha todos os campos!";
+        }
+    }
+    public String alterarCnpj(int idFornecedor, String novoCnpj) {
+        try {
+            if(novoCnpj.isEmpty()) {
+                return "Atualização cancelada! O CNPJ não pode ser vazio";
+            } else {
+                if(distribuidora.getFornecedores().containsKey(idFornecedor)) {
+                    distribuidora.getFornecedores().get(idFornecedor).setCnpj(novoCnpj);
+                     LoggerService.log("INFO", "CNPJ do fornecedor " + idFornecedor + " alterado para: "+ novoCnpj);
+                    return "CNPJ alterado com sucesso!";
+                } else {
+                    LoggerService.log("WARNING", "Tentativa de alterar CNPJ de fornecedor inexistente. ID utilizado: " + idFornecedor);
+                    return "ID informado inexistente!";
+                }
+            }
+        }catch (ObrigatorioException e) {
+            LoggerService.log("ERROR", "Alteração de CNPJ de fornecedor não realizada! Campos obrigatórios não foram preenchidos");
+            return "Preencha todos os campos!";
+        }
+    }
+    public String alterarCep(int idFornecedor, String novoCep) {
+        try {
+            if(novoCep.isEmpty()) {
+                return "Atualização cancelada! O CEP não pode ser vazio";
+            } else {
+                if(distribuidora.getFornecedores().containsKey(idFornecedor)) {
+                    distribuidora.getFornecedores().get(idFornecedor).setEndereco(new Endereco(novoCep));
+                     LoggerService.log("INFO", "CEP do fornecedor " + idFornecedor + " alterado para: "+ novoCep);
+                    return "CEP alterado com sucesso!";
+                } else {
+                    LoggerService.log("WARNING", "Tentativa de alterar CEP de fornecedor inexistente. ID utilizado: " + idFornecedor);
+                    return "ID informado inexistente!";
+                }
+            }
+        }catch (ObrigatorioException e) {
+            LoggerService.log("ERROR", "Alteração de CEP de fornecedor não realizada! Campos obrigatórios não foram preenchidos");
+            return "Preencha todos os campos!";
+        }
+    }
+
+    public void listarFornecedores() {
+        try {
+            for(Fornecedor f : distribuidora.getFornecedores().values()) {
+                view.mensagem(f.toString());
+                view.mensagem("Bebidas associadas a este fornecedor: ");
+                if(f.getBebidasFornecedor().isEmpty()) {
+                    view.mensagem("Sem bebidas associadas!");
+                }else {
+                    for(Bebida b : f.getBebidasFornecedor().values()) {
+                        view.mensagem(b.getDescricaoBebida());
+                    }
+                }
+                
+            }
+            LoggerService.log("INFO", "Fornecedores listados");
+        } catch (Exception e) {
+            view.mensagem("Erro ao listar fornecedores");
+            LoggerService.log("ERRPR", "Erro ao listar fornecedores");
+        }
+        
+    }
+
+    public void sincronizarProximoId() {
+        if (!distribuidora.getFornecedores().isEmpty()) {
+            int maiorId = 0;
+            for (Integer id : distribuidora.getFornecedores().keySet()) {
+                if (id > maiorId) {
+                    maiorId = id;
+                }
+            }
+            this.proximoId = maiorId + 1;
+        } else {
+            this.proximoId = 1; 
+        }
+    }
+}

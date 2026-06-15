@@ -1,0 +1,49 @@
+package Controller;
+
+import Service.Distribuidora;
+import Model.Bebida;
+import Model.Venda;
+
+public class RelatorioController {
+    private Distribuidora distribuidora;
+
+    public RelatorioController(Distribuidora distribuidora) {
+        this.distribuidora = distribuidora;
+    }
+
+    public double calcularValorTotalEstoque() {
+        double total = 0;
+        for (Bebida b : distribuidora.listarBebidas()) {
+            int quantidade = distribuidora.getEstoque().getQuantidade(b.getCodigo());
+            total += (b.getPreco() * quantidade);
+        }
+        return total;
+    }
+
+    public void verificarProdutosBaixoEstoque(int limiteMinimo) {
+        boolean encontrou = false;
+        System.out.println("\n--- PRODUTOS COM ESTOQUE ABAIXO DE " + limiteMinimo + " UNIDADES ---");
+        
+        for (Bebida b : distribuidora.listarBebidas()) {
+            int qtd = distribuidora.getEstoque().getQuantidade(b.getCodigo());
+            if (qtd < limiteMinimo) {
+                System.out.println("- " + b.getNome() + " (Código: " + b.getCodigo() + ") | Qtd Atual: " + qtd);
+                encontrou = true;
+            }
+        }
+        
+        if (!encontrou) {
+            System.out.println("Excelente! Nenhum produto está abaixo do limite estabelecido.");
+        }
+    }
+
+    public double calcularFaturamentoTotalVendas() {
+        double total = 0;
+        if (distribuidora.getVendas() == null) return 0;
+        
+        for (Venda v : distribuidora.getVendas()) {
+            total += v.calculoTotalVenda();
+        }
+        return total;
+    }
+}
